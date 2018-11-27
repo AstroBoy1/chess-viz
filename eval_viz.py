@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import random
 from collections import namedtuple
+import statistics
 
 
 class Move:
@@ -26,6 +27,9 @@ class Game:
         self.moves = []
         self.num_candidates = num_candidates
         self.best_line = []
+        self.mean = None
+        self.variance = None
+        self.stdv = None
 
     def parse_log(self):
         with open(self.fn, 'r') as f:
@@ -73,7 +77,6 @@ class Game:
             best_move = ""
             for m, e in zip(move.candidates, move.evaluations):
                 evaluation = float(e[1:])
-                # print(evaluation)
                 sign = e[0]
                 if sign == "-":
                     evaluation *= -1
@@ -87,9 +90,9 @@ class Game:
                     if evaluation < best_eval:
                         best_eval = evaluation
                         best_move = m
-            print("Move number", count)
-            print("Best eval", best_eval)
-            print("Best move", best_move, "\n")
+            #print("Move number", count)
+            #print("Best eval", best_eval)
+            #print("Best move", best_move, "\n")
             self.best_line.append(Move(count, best_move, best_eval))
 
     def create_graph(self):
@@ -97,9 +100,15 @@ class Game:
         sns.set(style="white", context="talk")
         f, (ax1) = plt.subplots(1, 1, figsize=(10, 5))
         df = pd.DataFrame()
-        length = 10
+        length = len(self.best_line)
         moves = ["Move " + str(num) for num in range(length)]
-        evals = [random.randrange(-10, 10) for _ in range(length)]
+        evals = [move.evaluations for move in self.best_line]
+        self.mean = statistics.mean(evals)
+        self.stdv = statistics.stdev(evals)
+        self.variance = statistics.variance(evals)
+        print("Mean evaluation", self.mean)
+        print("Variance", self.variance)
+        print("Standard deviation", self.stdv)
         df['moves'] = moves
         df['eval'] = evals
         sns.barplot(x="moves", y="eval", palette="rocket", ax=ax1, data=df)
@@ -108,7 +117,7 @@ class Game:
         ax1.set_ylabel("Evaluation")
         ax1.set_title("LC0 Evaluation of the Chess Game")
         sns.despine(bottom=True)
-        plt.setp(f.axes, yticks=list(range(min(evals), max(evals))))
+        plt.setp(f.axes, yticks=list(range(int(min(evals)), int(max(evals)))))
         plt.tight_layout(h_pad=2)
         plt.show()
         return ax1
@@ -121,7 +130,7 @@ def main():
     wcc18g1 = Game(games["game1"].game_id, games["game1"].game_fn, games["game1"].num_cand)
     wcc18g1.parse_log()
     wcc18g1.find_best()
-    # wcc18g1.create_graph()
+    wcc18g1.create_graph()
 
 
 if __name__ == "__main__":
