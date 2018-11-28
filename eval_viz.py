@@ -8,6 +8,8 @@ import pandas as pd
 import random
 from collections import namedtuple
 import statistics
+import math
+from scipy.stats import lognorm
 
 
 class Move:
@@ -30,6 +32,10 @@ class Game:
         self.mean = None
         self.variance = None
         self.stdv = None
+        self.white_loss = 0
+        self.black_loss = 0
+        self.white_differences = []
+        self.black_differences = []
 
     def parse_log(self):
         with open(self.fn, 'r') as f:
@@ -44,7 +50,6 @@ class Game:
                 if l.startswith(str(count)):
                     move_data = []
                     count += 1
-                    # self.moves.append(Move(count - 2, [], []))
                 elif l == "" and count > 1:
                     moves = []
                     evals = []
@@ -95,6 +100,19 @@ class Game:
             #print("Best move", best_move, "\n")
             self.best_line.append(Move(count, best_move, best_eval))
 
+    def calculate_loss(self):
+        for i in range(0, len(self.best_line) - 1):
+            current_eval = self.best_line[i].evaluations
+            next_eval = self.best_line[i + 1].evaluations
+            ds = abs(current_eval - next_eval)
+            # print(ds)
+            if i % 2:
+                self.black_loss += ds
+                self.black_differences.append(ds)
+            else:
+                self.white_loss += ds
+                self.white_differences.append(ds)
+
     def create_graph(self):
         """Creates the evaluation graph for a given game"""
         sns.set(style="white", context="talk")
@@ -115,22 +133,42 @@ class Game:
         ax1.axhline(0, color="k", clip_on=False)
         ax1.set_xlabel("Move #")
         ax1.set_ylabel("Evaluation")
-        ax1.set_title("LC0 Evaluation of the Chess Game")
+        ax1.set_title("LC0 Evaluation of Game" + str(self.identity))
         sns.despine(bottom=True)
         plt.setp(f.axes, yticks=list(range(int(min(evals)), int(max(evals)))))
+        plt.setp(f.axes, xticks=list(range(0, len(self.best_line))))
         plt.tight_layout(h_pad=2)
         plt.show()
         return ax1
 
+    def output_stats(self):
+        print("Average White loss", self.white_loss / len(self.best_line) / 2)
+        print("Average Black loss", self.black_loss / len(self.best_line) / 2)
+        print("Black differences", sorted(self.black_differences))
+        print("White differences", sorted(self.white_differences))
+        print("White loss standard deviation", statistics.stdev(self.white_differences))
+        print("Black loss standard deviation", statistics.stdev(self.black_differences))
+
+        plt.subplot(2, 1, 1)
+        print("Log White differences", self.white_differences)
+        plt.hist(self.white_differences)
+        plt.title('White Loss')
+
+        plt.subplot(2, 1, 2)
+        plt.hist(self.black_differences)
+        plt.title("Black Loss")
+        plt.show()
+
 
 def main():
-    """Finish creating eval graph for game """
     game_tuple = namedtuple("game_tuple", ["game_id", "game_fn", "num_cand"])
     games = {"game1": game_tuple(1, "analysis/wcc18g1.log", 3)}
     wcc18g1 = Game(games["game1"].game_id, games["game1"].game_fn, games["game1"].num_cand)
     wcc18g1.parse_log()
     wcc18g1.find_best()
+    wcc18g1.calculate_loss()
     wcc18g1.create_graph()
+    wcc18g1.output_stats()
 
 
 if __name__ == "__main__":
