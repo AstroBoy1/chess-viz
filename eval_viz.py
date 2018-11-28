@@ -10,6 +10,7 @@ from collections import namedtuple
 import statistics
 import math
 from scipy.stats import lognorm
+import string
 
 
 class Move:
@@ -95,6 +96,9 @@ class Game:
                     if evaluation < best_eval:
                         best_eval = evaluation
                         best_move = m
+            """TODO: hotfix"""
+            if best_eval == -float('inf') or best_eval == float('inf'):
+                best_eval = 0
             #print("Move number", count)
             #print("Best eval", best_eval)
             #print("Best move", best_move, "\n")
@@ -124,51 +128,76 @@ class Game:
         self.mean = statistics.mean(evals)
         self.stdv = statistics.stdev(evals)
         self.variance = statistics.variance(evals)
-        print("Mean evaluation", self.mean)
-        print("Variance", self.variance)
-        print("Standard deviation", self.stdv)
+        #print("Mean evaluation", self.mean)
+        #print("Variance", self.variance)
+        #print("Standard deviation", self.stdv)
         df['moves'] = moves
         df['eval'] = evals
         sns.barplot(x="moves", y="eval", palette="rocket", ax=ax1, data=df)
+        sns.despine()
         ax1.axhline(0, color="k", clip_on=False)
         ax1.set_xlabel("Move #")
         ax1.set_ylabel("Evaluation")
         ax1.set_title("LC0 Evaluation of Game" + str(self.identity))
         sns.despine(bottom=True)
-        plt.setp(f.axes, yticks=list(range(int(min(evals)), int(max(evals)))))
+        plt.setp(f.axes, yticks=list(range(-5, 5)))
         plt.setp(f.axes, xticks=list(range(0, len(self.best_line))))
         plt.tight_layout(h_pad=2)
-        plt.show()
+        ax1.axes.get_xaxis().set_visible(False)
+        plt.savefig("output/Eval" + str(self.identity) + ".png")
         return ax1
 
     def output_stats(self):
-        print("Average White loss", self.white_loss / len(self.best_line) / 2)
-        print("Average Black loss", self.black_loss / len(self.best_line) / 2)
-        print("Black differences", sorted(self.black_differences))
-        print("White differences", sorted(self.white_differences))
-        print("White loss standard deviation", statistics.stdev(self.white_differences))
-        print("Black loss standard deviation", statistics.stdev(self.black_differences))
+        # print("Average White loss", self.white_loss / len(self.best_line) / 2)
+        # print("Average Black loss", self.black_loss / len(self.best_line) / 2)
+        # print("Black differences", sorted(self.black_differences))
+        # print("White differences", sorted(self.white_differences))
+        # print("White loss standard deviation", statistics.stdev(self.white_differences))
+        # print("Black loss standard deviation", statistics.stdev(self.black_differences))
+        # print("Best line", [move.evaluations for move in self.best_line])
 
+        plt.rcParams["figure.figsize"] = [20, 10]
         plt.subplot(2, 1, 1)
-        print("Log White differences", self.white_differences)
+        plt.tight_layout()
         plt.hist(self.white_differences)
         plt.title('White Loss')
 
         plt.subplot(2, 1, 2)
         plt.hist(self.black_differences)
         plt.title("Black Loss")
-        plt.show()
+        plt.savefig("output/Losses" + str(self.identity) + ".png")
 
 
 def main():
-    game_tuple = namedtuple("game_tuple", ["game_id", "game_fn", "num_cand"])
-    games = {"game1": game_tuple(1, "analysis/wcc18g1.log", 3)}
-    wcc18g1 = Game(games["game1"].game_id, games["game1"].game_fn, games["game1"].num_cand)
-    wcc18g1.parse_log()
-    wcc18g1.find_best()
-    wcc18g1.calculate_loss()
-    wcc18g1.create_graph()
-    wcc18g1.output_stats()
+    """Bug in getting inf for best line eval"""
+    carlsen_loss = []
+    caruana_loss = []
+    for game_number in range(1, 13):
+        print("\n", "Game Number " + str(game_number))
+        game_tuple = namedtuple("game_tuple", ["game_id", "game_fn", "num_cand"])
+        games = {"game" + str(game_number): game_tuple(game_number, "analysis/wcc18g" + str(game_number) + ".log", 3)}
+        # games = {"game" + str(game_number): game_tuple(game_number, "analysis/wcc18g1.log", 3)}
+        wcc18g1 = Game(games["game" + str(game_number)].game_id, games["game" + str(game_number)].game_fn, games["game" + str(game_number)].num_cand)
+        wcc18g1.parse_log()
+        wcc18g1.find_best()
+        wcc18g1.calculate_loss()
+        wcc18g1.create_graph()
+        wcc18g1.output_stats()
+        # Caruana is white
+        if game_number % 2:
+            caruana_loss.append(wcc18g1.white_differences)
+            carlsen_loss.append(wcc18g1.black_differences)
+        else:
+            caruana_loss.append(wcc18g1.black_differences)
+            carlsen_loss.append(wcc18g1.white_differences)
+    carlsen_flat_list = [item for sublist in carlsen_loss for item in sublist]
+    caruana_flat_list = [item for sublist in caruana_loss for item in sublist]
+    #print("Carlsen loss: ", carlsen_flat_list)
+    #print("Carauana loss: ", caruana_flat_list)
+    loss_df = pd.DataFrame()
+    loss_df['carlsen_loss'] = carlsen_flat_list
+    loss_df['caruana_loss'] = caruana_flat_list
+    loss_df.to_csv("output/OverallLoses.csv")
 
 
 if __name__ == "__main__":
