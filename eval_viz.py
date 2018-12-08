@@ -157,14 +157,13 @@ class Game:
         # print("Best line", [move.evaluations for move in self.best_line])
 
         plt.rcParams["figure.figsize"] = [20, 10]
-        plt.subplot(2, 1, 1)
+        bins = [x * 0.25 for x in range(10)]
+        f, (ax1, ax2) = plt.subplots(2, 1, sharex='col')
         plt.tight_layout()
-        plt.hist(self.white_differences)
-        plt.title('White Loss')
-
-        plt.subplot(2, 1, 2)
-        plt.hist(self.black_differences)
-        plt.title("Black Loss")
+        ax1.hist(self.white_differences, color='yellow', bins=bins)
+        ax1.set_title('White Loss Game' + str(self.identity))
+        ax2.hist(self.black_differences, color='black', bins=bins)
+        ax2.set_title("Black Loss Game" + str(self.identity))
         plt.savefig("output/Losses" + str(self.identity) + ".png")
 
 
